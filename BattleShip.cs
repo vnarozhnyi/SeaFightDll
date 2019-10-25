@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Timers;
 
 namespace BattleShip
 {
-    enum ShipType { BattleShip, SupportingShip, MainShip}
+    enum ShipType { BattleShip, SupportingShip, MainShip }
+    public enum Direction { Up, Down, Left, Right }
+
     interface IMovable
     {
-        void Move(int x, int y);
+        void Move();
     }
 
     interface IShootable
@@ -22,50 +22,48 @@ namespace BattleShip
     {
         void Repair(int x, int y);
     }
-    public class Field : IComparable<BaseShip>
+
+    public class BatteField
     {
-        public static List<BaseShip> Ships = new List<BaseShip>();
-        BaseShip ship;
-        public static int sX, sY;
-        public static void MapSize(int x, int y)
+        public List<BaseShip> Ships = new List<BaseShip>();
+        public int X, Y;
+        public int[,] Map;
+
+        public void InitMap(int x, int y)
         {
-            sX = x;
-            sY = y;
+            Map = new int[X = x, Y = y];
+            Create();
         }
 
-        public int[,] map = new int[sX, sY];
-
-        public void Create()
+        private void Create()
         {
-            for (int i = 0; i < sX; i++)
-                for (int j = 0; j < sY; j++)
-                    map[i,j] = 0;
+            if (X > 0 && Y > 0)
+            {
+                for (int i = 0; i < X; i++)
+                    for (int j = 0; j < Y; j++)
+                        Map[i, j] = 0;
+            }
         }
-        public static void AddShip(int x, int y, BaseShip ship)
-        {
+
+        public void AddShip(int x, int y, BaseShip ship)
+        { 
             ship.PositionX = x;
             ship.PositionY = y;
-            Ships.Add(ship);
-        }
-
-        public int this[int x, int y] { get => map[x, y]; set => map[x, y] = value; }
-
-        public string State()
-        {
-            return Convert.ToString(Ships.OrderByDescending(x => x.PositionX).ThenBy(x => ship.PositionY));
-        }
-      
-        public int CompareTo(BaseShip other)
-        {
-            if (other.Length == ship.Length && other.Speed == ship.Speed && other.ShipType == ship.ShipType)
+           if(Ships.All(ships => ships.PositionX != x && ships.PositionY != y))
             {
-                return 1;
+                Ships.Add(ship);
             }
-            else return 0;
+        }
+
+        public int this[int x, int y] { get => Map[x, y]; set => Map[x, y] = value; }
+
+        public string GetState()
+        {
+            return string.Join(", ", Ships.OrderByDescending(ship => ship.PositionX * ship.PositionX + ship.PositionY * ship.PositionY).Reverse().ToList());
         }
     }
 
-    public abstract class BaseShip
+    public abstract class BaseShip : IComparable<BaseShip>, IMovable
     {
         private int speed;
         private int length;
@@ -78,128 +76,144 @@ namespace BattleShip
         public int Speed { get => speed; set => speed = value; }
         public int PositionX { get => positionX; set => positionX = value; }
         public int PositionY { get => positionY; set => positionY = value; }
-        internal abstract ShipType ShipType { get; set; }
+        internal abstract ShipType ShipType { get; }
 
-        public abstract string State();
+        public Direction Direction;
+        public void Move()
+        {
+            switch (Direction)
+            {
+                case Direction.Up: PositionY += Speed; break;
+                case Direction.Down: PositionY -= Speed; break;
+                case Direction.Left: PositionX += Speed; break;
+                case Direction.Right: PositionX -= Speed; break;
+            }
+        }
+        public int CompareTo(BaseShip other)
+        {
+            return other.Length == Length && other.Speed == Speed && other.ShipType == ShipType ? 1 : 0;
+        }
+
+        public string State()
+        {
+            return $"Length {Length.ToString()} Range {Range.ToString()} Speed {Speed.ToString()} Type {ShipType.ToString()}";
+        }
     }
 
-    public class BattleShip : BaseShip, IMovable, IShootable
+    public class CarrierShip : BaseShip, IShootable
     {
-        Timer timer = new Timer(); 
-       public BattleShip(int length, int range, int speed)
+        Timer timer = new Timer();
+        public CarrierShip(int length, int range, int speed, Direction direction)
         {
             Length = length;
             Range = range;
             Speed = speed;
+            Direction = direction;  
         }
 
-        internal override ShipType ShipType { get => ShipType; set => ShipType = ShipType.BattleShip; }
-
-        public void Move(int x, int y)
-        {
-            timer.Interval = Speed * 1000;
-            PositionX += x;
-            PositionY += y;
-        }
+        internal override ShipType ShipType { get => ShipType.BattleShip; }
 
         public void Shoot(int x, int y)
         {
-            int shellX = PositionX; int shellY = PositionY;
-            int distance = Convert.ToInt32(Math.Sqrt(x*x+y*y));
+            int shellX = PositionX;
+            int shellY = PositionY;
+            int distance = Convert.ToInt32(Math.Sqrt(x * x + y * y));
+
             if (Range > distance)
             {
                 shellX = x;
                 shellY = y;
             }
         }
-
-        public override string State()
+        public void GetMove()
         {
-            return $"Length {Length.ToString()} Range {Range.ToString()} Speed {Speed.ToString()}";
+            Move();
+        }
+
+        public void GetState()
+        {
+            State();
         }
     }
 
-    public class SupportingShip : BaseShip, IMovable, IRepairable
+    public class SupportingShip : BaseShip, IRepairable
     {
-        Timer timer = new Timer();
-        public SupportingShip(int length, int range, int speed)
+        public SupportingShip(int length, int range, int speed, Direction direction)
         {
             Length = length;
             Range = range;
             Speed = speed;
+            Direction = direction;
         }
 
-        internal override ShipType ShipType { get => ShipType; set => ShipType = ShipType.SupportingShip; }
-
-        public void Move(int x, int y)
-        {
-            timer.Interval = Speed * 1000;
-            PositionX += x;
-            PositionY += y;
-        }
+        internal override ShipType ShipType { get => ShipType.SupportingShip; }
 
         public void Repair(int x, int y)
         {
-            int toolsX = PositionX; int toolsY = PositionY;
             int distance = Convert.ToInt32(Math.Sqrt(x * x + y * y));
+            int toolX = PositionX;
+            int toolY = PositionY;
+
             if (Range > distance)
             {
-                toolsX = x;
-                toolsY = y;
+                toolX = x;
+                toolY = y;
             }
         }
-
-        public override string State()
+        public void GetMove()
         {
-            return $"Length {Length.ToString()} Range {Range.ToString()} Speed {Speed.ToString()}";
+            Move();
+        }
+        public void GetState()
+        {
+            State();
         }
     }
 
-    public class MainShip : BaseShip, IMovable, IShootable, IRepairable
+    public class MainShip : BaseShip, IShootable, IRepairable
     {
-        Timer timer = new Timer();
-        
-        public MainShip(int length, int range, int speed)
+    public MainShip(int length, int range, int speed, Direction direction)
+    {
+        Length = length;
+        Range = range;
+        Speed = speed;
+        Direction = direction;
+    }
+
+    internal override ShipType ShipType { get => ShipType.MainShip; }
+
+    public void Repair(int x, int y)
+    {
+        int distance = Convert.ToInt32(Math.Sqrt(x * x + y * y));
+        int toolX = PositionX;
+        int toolY = PositionY;
+
+        if (Range > distance)
         {
-            Length = length;
-            Range = range;
-            Speed = speed;
+            toolX = x;
+            toolY = y;
+        }
+    }
+
+    public void Shoot(int x, int y)
+    {
+        int distance = Convert.ToInt32(Math.Sqrt(x * x + y * y));
+        int shellX = PositionX;
+        int shellY = PositionY;
+        if (Range > distance)
+        {
+           shellX = x;
+           shellY = y;
+        }
+    }
+        public void GetMove()
+        {
+            Move();
         }
 
-        internal override ShipType ShipType { get => ShipType; set => ShipType = ShipType.MainShip; }
-
-        public void Move(int x, int y)
+        public void GetState()
         {
-            timer.Interval = Speed * 1000;
-            PositionX += x;
-            PositionY += y;
-        }
-
-        public void Repair(int x, int y)
-        {
-            int toolsX = PositionX; int toolsY = PositionY;
-            int distance = Convert.ToInt32(Math.Sqrt(x * x + y * y));
-            if (Range > distance)
-            {
-                toolsX = x;
-                toolsY = y;
-            }
-        }
-
-        public void Shoot(int x, int y)
-        {
-            int shellX = PositionX; int shellY = PositionY;
-            int distance = Convert.ToInt32(Math.Sqrt(x * x + y * y));
-            if (Range > distance)
-            {
-                shellX = x;
-                shellY = y;
-            }
-        }
-
-        public override string State()
-        {
-            return $"Length {Length.ToString()} Range {Range.ToString()} Speed {Speed.ToString()}";
+            State();
         }
     }
 }
