@@ -5,6 +5,7 @@ using System.Linq;
 namespace BattleShip
 {
     enum Quadrant { First, Second, Third, Fourth}
+
     public class BattleField
     {
         public List<BaseShip> Ships = new List<BaseShip>();
@@ -27,6 +28,7 @@ namespace BattleShip
 
         public void AddShip(int x, int y, BaseShip ship)
         {
+            int a = 0;
             if ( x < X && y < Y)
             {
                 if (x > 0 && y > 0)
@@ -46,9 +48,29 @@ namespace BattleShip
                     quadrant = (int)Quadrant.Fourth;
                 }
 
-                Map[X = x,Y = y] = 1;
+                Map[X = x, Y = y] = 1;
 
-                if (Map[X, Y] != 0)
+                switch (ship.Direction)
+                {
+                    case Direction.Up:
+                        for (; a < (ship.Length + 1); a++)
+                        { Map[x, y--] = 1; };
+                        break;
+                    case Direction.Down:
+                        for (; a < (ship.Length + 1); a++)
+                        { Map[x, y++] = 1; };
+                        break;
+                    case Direction.Left:
+                        for (; a < (ship.Length + 1); a++)
+                        { Map[x++, y] = 1; };
+                        break;
+                    case Direction.Right:
+                        for (; a < (ship.Length + 1); a++)
+                        { Map[x--, y] = 1 ; };
+                        break;
+                }
+
+                if (Map[X, Y] != 1)
                 {
                     Ships.Add(ship);
                 }
